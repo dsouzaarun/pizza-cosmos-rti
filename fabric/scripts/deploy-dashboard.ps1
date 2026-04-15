@@ -162,16 +162,16 @@ $t2_utilBar = New-Tile -Title "Kitchen Utilization %" `
 
 $t2_statusPie = New-Tile -Title "Kitchen Status" `
     -Query "KitchenMetrics | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by KitchenId | summarize Count = count() by Status" `
-    -VisualType "piechart" -X 12 -Y 0 -W 12 -H 10 -PageId $page2Id -DsId $dsId
+    -VisualType "pie" -X 12 -Y 0 -W 12 -H 10 -PageId $page2Id -DsId $dsId
 
 # Row 2: Orders by kitchen (stacked area) + Avg prep time trend
 $t2_ordersByKitchen = New-Tile -Title "Order Volume by Kitchen (30m)" `
     -Query "Orders | where Timestamp > ago(30m) | summarize OrderCount = dcount(OrderId) by bin(Timestamp, 2m), KitchenName | order by Timestamp asc" `
-    -VisualType "areachart" -X 0 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
+    -VisualType "area" -X 0 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
 
 $t2_prepTimeTrend = New-Tile -Title "Avg Prep Time by Kitchen (30m)" `
-    -Query "KitchenMetrics | where Timestamp > ago(30m) | summarize AvgPrep = avg(AvgPrepTimeMinutes) by bin(Timestamp, 2m), KitchenName | order by Timestamp asc" `
-    -VisualType "timechart" -X 12 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
+    -Query "KitchenMetrics | where Timestamp > ago(30m) | summarize AvgPrep = avg(AvgPrepTimeMinutes) by bin(Timestamp, 2m), KitchenName | render timechart" `
+    -VisualType "line" -X 12 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
 
 # Row 3: Kitchen queue heatmap + Kitchen detail table
 $t2_heatmap = New-Tile -Title "Kitchen Load Heatmap" `
@@ -195,11 +195,11 @@ $t3_driverMap = New-Tile -Title "Driver Locations" `
 
 $t3_statusDonut = New-Tile -Title "Driver Status Distribution" `
     -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | summarize Count = count() by Status" `
-    -VisualType "piechart" -X 14 -Y 0 -W 10 -H 12 -PageId $page3Id -DsId $dsId
+    -VisualType "pie" -X 14 -Y 0 -W 10 -H 12 -PageId $page3Id -DsId $dsId
 
 # Row 2: Delivery time scatter + Speed distribution
 $t3_deliveryScatter = New-Tile -Title "Delivery Time vs Distance" `
-    -Query "Orders | where Timestamp > ago(2h) | where Status == 'delivered' | extend DistFromDowntown = geo_distance_2points(-74.006, 40.7128, DeliveryLng, DeliveryLat) / 1000.0 | project Distance_km = round(DistFromDowntown, 2), DeliveryMinutes = EstimatedDeliveryMinutes, CustomerName, IsVip | order by Distance_km asc" `
+    -Query "Orders | where Timestamp > ago(2h) | where Status has 'delivered' | extend DistFromDowntown = geo_distance_2points(-74.006, 40.7128, DeliveryLng, DeliveryLat) / 1000.0 | project Distance_km = round(DistFromDowntown, 2), DeliveryMinutes = EstimatedDeliveryMinutes, CustomerName, IsVip | order by Distance_km asc" `
     -VisualType "scatter" -X 0 -Y 12 -W 12 -H 10 -PageId $page3Id -DsId $dsId
 
 $t3_speedTrend = New-Tile -Title "Fleet Avg Speed (30m)" `
