@@ -90,6 +90,7 @@ function New-Tile([string]$Title, [string]$Query, [string]$VisualType, [int]$X, 
         dataSourceId = $DsId
         visualType = $VisualType
         visualOptions = @{}
+        usedParamVariables = @()
     }
     return $tile
 }
@@ -111,9 +112,9 @@ $dashDef = @{
     '$schema' = "https://dataexplorer.azure.com/static/d/schema/20/dashboard.json"
     schema_version = "20"
     title = $DashboardName
-    autoRefresh = @{ enabled = $true; defaultInterval = "10s"; minInterval = "10s" }
+    autoRefresh = @{ enabled = $true; defaultInterval = "30s"; minInterval = "30s" }
     pages = @(@{ id = $pageId; name = "Operations" })
-    dataSources = @(@{ id = $dsId; name = "PizzaCosmosKQL"; clusterUri = $clusterUri; database = $dbName; kind = "manual-kusto" })
+    dataSources = @(@{ id = $dsId; name = "PizzaCosmosKQL"; clusterUri = $clusterUri; database = $dbName; kind = "manual-kusto"; scopeId = "cluster" })
     parameters = @()
     tiles = $tiles
 }
