@@ -53,13 +53,10 @@ function Invoke-KqlQuery($query) {
 
 $now = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
-# --- Send test orders ---
+# --- Send test orders (use .set-or-append + datatable to handle dynamic Items column) ---
 Write-Host "`n[2/4] Inserting test orders..." -ForegroundColor Yellow
 $orderCmd = @"
-.ingest inline into table Orders <|
-$now,ORD-TEST-001,CUST-001,Maria Santos,true,K1,Brooklyn Heights Pizza,['Margherita'],1,preparing,25,DRV-001,order_placed
-$now,ORD-TEST-002,CUST-002,James Chen,false,K2,SoHo Slice,['Pepperoni','Hawaiian'],2,in_transit,30,DRV-003,order_placed
-$now,ORD-TEST-003,CUST-003,Priya Sharma,true,K3,Midtown Express,['Truffle Special'],1,ready,20,,order_placed
+.set-or-append Orders <| datatable(Timestamp:datetime,OrderId:string,CustomerId:string,CustomerName:string,IsVip:bool,KitchenId:string,KitchenName:string,Items:dynamic,ItemCount:int,Status:string,EstimatedDeliveryMinutes:int,DriverId:string,EventType:string) [ datetime($now),"ORD-TEST-001","CUST-001","Maria Santos",true,"K1","Brooklyn Heights Pizza",dynamic(["Margherita"]),1,"preparing",25,"DRV-001","order_placed", datetime($now),"ORD-TEST-002","CUST-002","James Chen",false,"K2","SoHo Slice",dynamic(["Pepperoni","Hawaiian"]),2,"in_transit",30,"DRV-003","order_placed", datetime($now),"ORD-TEST-003","CUST-003","Priya Sharma",true,"K3","Midtown Express",dynamic(["Truffle Special"]),1,"ready",20,"","order_placed" ]
 "@
 Invoke-KqlCommand $orderCmd
 Write-Host "  OK 3 test orders inserted" -ForegroundColor Green
