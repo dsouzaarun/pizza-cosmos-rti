@@ -89,7 +89,7 @@ function New-Tile([string]$Title, [string]$Query, [string]$VisualType, [int]$X, 
         pageId = $PageId
         dataSourceId = $DsId
         visualType = $VisualType
-        visualOptions = @{ xColumn = @{ type = "infer" }; yColumns = @{ type = "infer" }; seriesColumns = @{ type = "auto" }; hideLegend = $false }
+        visualOptions = @{}
     }
     return $tile
 }
@@ -108,14 +108,13 @@ $tiles = @(
 )
 
 $dashDef = @{
-    schema_version = "52"
+    '$schema' = "https://dataexplorer.azure.com/static/d/schema/20/dashboard.json"
+    schema_version = "20"
     title = $DashboardName
-    autoRefresh = @{ enabled = $true; defaultRefreshRateInSeconds = 10; minRefreshRateInSeconds = 10 }
-    pages = @(@{ id = $pageId; name = "Operations"; showTitle = $true })
+    autoRefresh = @{ enabled = $true; defaultInterval = "10s"; minInterval = "10s" }
+    pages = @(@{ id = $pageId; name = "Operations" })
     dataSources = @(@{ id = $dsId; name = "PizzaCosmosKQL"; clusterUri = $clusterUri; database = $dbName; kind = "manual-kusto" })
-    parameters = @(@{ id = [guid]::NewGuid().ToString(); name = "timeRange"; type = "duration"; defaultValue = @{ durationMs = 3600000 }; beginVariableName = "_startTime"; endVariableName = "_endTime"; showOnPages = @{ kind = "all" } })
-    baseQueries = @()
-    queries = @()
+    parameters = @()
     tiles = $tiles
 }
 
