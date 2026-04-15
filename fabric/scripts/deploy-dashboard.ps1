@@ -170,8 +170,8 @@ $t2_ordersByKitchen = New-Tile -Title "Order Volume by Kitchen (30m)" `
     -VisualType "area" -X 0 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
 
 $t2_prepTimeTrend = New-Tile -Title "Avg Prep Time by Kitchen (30m)" `
-    -Query "KitchenMetrics | where Timestamp > ago(30m) | summarize AvgPrep = avg(AvgPrepTimeMinutes) by bin(Timestamp, 2m), KitchenName | render timechart" `
-    -VisualType "line" -X 12 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
+    -Query "KitchenMetrics | where Timestamp > ago(30m) | summarize AvgPrep = avg(AvgPrepTimeMinutes) by bin(Timestamp, 2m), KitchenName | order by Timestamp asc" `
+    -VisualType "timechart" -X 12 -Y 10 -W 12 -H 10 -PageId $page2Id -DsId $dsId
 
 # Row 3: Kitchen queue heatmap + Kitchen detail table
 $t2_heatmap = New-Tile -Title "Kitchen Load Heatmap" `
@@ -191,7 +191,7 @@ Write-Host "  Building Page 3: Fleet & Delivery..." -ForegroundColor Gray
 $t3_driverMap = New-Tile -Title "Driver Locations" `
     -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | project DriverId, Latitude, Longitude, Status, Speed" `
     -VisualType "map" -X 0 -Y 0 -W 14 -H 12 -PageId $page3Id -DsId $dsId `
-    -VisualOptions @{ defineLocationBy = "latitude and longitude" }
+    -VisualOptions @{ defineLocationBy = "latitude and longitude"; latitudeColumn = "Latitude"; longitudeColumn = "Longitude" }
 
 $t3_statusDonut = New-Tile -Title "Driver Status Distribution" `
     -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | summarize Count = count() by Status" `

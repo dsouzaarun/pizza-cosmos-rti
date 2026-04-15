@@ -83,7 +83,7 @@ Write-Host "  Cluster URI: $clusterUri" -ForegroundColor Cyan
 Write-Host "`n[4/5] Deploying table schemas..." -ForegroundColor Yellow
 
 $tableCommands = @(
-    ".create-merge table Orders (Timestamp: datetime, OrderId: string, CustomerId: string, CustomerName: string, IsVip: bool, KitchenId: string, KitchenName: string, Items: dynamic, ItemCount: int, Status: string, EstimatedDeliveryMinutes: int, DriverId: string, EventType: string)",
+    ".create-merge table Orders (Timestamp: datetime, OrderId: string, CustomerId: string, CustomerName: string, IsVip: bool, KitchenId: string, KitchenName: string, Items: dynamic, ItemCount: int, Status: string, EstimatedDeliveryMinutes: int, DeliveryLat: real, DeliveryLng: real, DriverId: string, EventType: string)",
     ".create-merge table DriverUpdates (Timestamp: datetime, DriverId: string, DriverName: string, Latitude: real, Longitude: real, Status: string, CurrentOrderId: string, Speed: real, Heading: real, EventType: string)",
     ".create-merge table KitchenMetrics (Timestamp: datetime, KitchenId: string, KitchenName: string, QueueDepth: int, Capacity: int, UtilizationPercent: real, AvgPrepTimeMinutes: real, Status: string, ActiveOrders: int, EventType: string)",
     ".create-merge table Alerts (Timestamp: datetime, AlertId: string, RuleName: string, Severity: string, EntityType: string, EntityId: string, Message: string, RecommendedAction: string, IsResolved: bool, ResolvedAt: datetime, EventType: string)"

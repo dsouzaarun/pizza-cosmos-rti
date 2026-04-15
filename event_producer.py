@@ -146,12 +146,14 @@ class KqlIngestor:
 
     def ingest_order(self, order: dict) -> bool:
         items_arr = str(order["items"]).replace("'", '"')
+        delivery_lat = order.get("delivery_lat", 0)
+        delivery_lng = order.get("delivery_lng", 0)
         csl = (
             '.set-or-append Orders <| '
             'datatable(Timestamp:datetime, OrderId:string, CustomerId:string, '
             'CustomerName:string, IsVip:bool, KitchenId:string, KitchenName:string, '
             'Items:dynamic, ItemCount:int, Status:string, EstimatedDeliveryMinutes:int, '
-            'DriverId:string, EventType:string)'
+            'DriverId:string, EventType:string, DeliveryLat:real, DeliveryLng:real)'
             f'[datetime("{order["timestamp"]}"), '
             f'"{order["order_id"]}", '
             f'"{order["customer_id"]}", '
@@ -164,7 +166,9 @@ class KqlIngestor:
             f'"{order["status"]}", '
             f'{order["estimated_minutes"]}, '
             f'"{order.get("driver_id", "")}", '
-            f'"{order["event_type"]}"]'
+            f'"{order["event_type"]}", '
+            f'{delivery_lat}, '
+            f'{delivery_lng}]'
         )
         ok = self._run_kql(csl, "order")
         if ok:
@@ -172,11 +176,15 @@ class KqlIngestor:
         return ok
 
     def ingest_driver(self, driver: dict) -> bool:
+        # Column order MUST match table schema:
+        # Timestamp, DriverId, DriverName, Latitude, Longitude, Status, CurrentOrderId, Speed, Heading, EventType
+        heading = driver.get("heading", 0)
+        event_type = driver.get("event_type", "driver_update")
         csl = (
             f'.ingest inline into table DriverUpdates <| '
             f'{driver["timestamp"]},{driver["driver_id"]},{driver["driver_name"]},'
-            f'{driver["status"]},{driver["latitude"]},{driver["longitude"]},'
-            f'{driver["current_order_id"]},{driver["speed"]}'
+            f'{driver["latitude"]},{driver["longitude"]},{driver["status"]},'
+            f'{driver["current_order_id"]},{driver["speed"]},{heading},{event_type}'
         )
         ok = self._run_kql(csl)
         if ok:
@@ -184,11 +192,15 @@ class KqlIngestor:
         return ok
 
     def ingest_kitchen(self, kitchen: dict) -> bool:
+        # Column order MUST match table schema:
+        # Timestamp, KitchenId, KitchenName, QueueDepth, Capacity, UtilizationPercent, AvgPrepTimeMinutes, Status, ActiveOrders, EventType
+        active_orders = kitchen.get("active_orders", kitchen.get("queue_depth", 0))
+        event_type = kitchen.get("event_type", "kitchen_update")
         csl = (
             f'.ingest inline into table KitchenMetrics <| '
             f'{kitchen["timestamp"]},{kitchen["kitchen_id"]},{kitchen["kitchen_name"]},'
             f'{kitchen["queue_depth"]},{kitchen["capacity"]},{kitchen["utilization_pct"]},'
-            f'{kitchen["status"]},{kitchen["avg_prep_time"]}'
+            f'{kitchen["avg_prep_time"]},{kitchen["status"]},{active_orders},{event_type}'
         )
         ok = self._run_kql(csl)
         if ok:
