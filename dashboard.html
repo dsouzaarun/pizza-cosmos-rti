@@ -3,345 +3,556 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🍕 Pizza Cosmos — Real-Time Operations Intelligence</title>
+<title>Pizza Cosmos RTI</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   :root {
-    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3a;
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #141720; --border: #2a2d3a;
     --text: #e4e6eb; --muted: #8b8fa3; --accent: #6c5ce7;
     --green: #00b894; --yellow: #fdcb6e; --orange: #e17055;
-    --red: #d63031; --blue: #0984e3; --critical: #ff3838;
+    --red: #d63031; --blue: #0984e3; --critical: #ff3838; --teal: #00cec9;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); height:100vh; overflow:hidden; }
 
-  /* Top Bar */
-  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: var(--surface); border-bottom: 1px solid var(--border); }
-  .topbar h1 { font-size: 1.3rem; }
-  .topbar h1 span { font-size: 1.5rem; }
-  .stats { display: flex; gap: 28px; }
-  .stat { text-align: center; }
-  .stat .value { font-size: 1.6rem; font-weight: 700; }
-  .stat .label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  /* ── Top Bar ── */
+  .topbar {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 20px; background:var(--surface); border-bottom:1px solid var(--border);
+    height:56px; z-index:100;
+  }
+  .logo { display:flex; align-items:center; gap:10px; }
+  .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,#ff6b6b,#e17055); border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .logo h1 { font-size:1.15rem; font-weight:700; }
+  .logo h1 small { color:var(--muted); font-size:0.65rem; font-weight:400; margin-left:4px; }
+
+  .stats { display:flex; gap:32px; }
+  .stat { text-align:center; }
+  .stat .value { font-size:1.5rem; font-weight:800; line-height:1.1; }
+  .stat .label { font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:1.2px; }
+
   .chaos-btn {
-    padding: 8px 18px; border: 2px solid var(--red); background: transparent;
-    color: var(--red); border-radius: 8px; cursor: pointer; font-weight: 700;
-    font-size: 0.85rem; transition: all 0.2s;
+    padding:7px 16px; border:2px solid var(--red); background:transparent;
+    color:var(--red); border-radius:20px; cursor:pointer; font-weight:700;
+    font-size:0.8rem; transition:all 0.2s; white-space:nowrap;
   }
-  .chaos-btn:hover { background: var(--red); color: #fff; }
-  .chaos-btn.active { background: var(--red); color: #fff; animation: pulse 1s infinite; }
+  .chaos-btn:hover { background:var(--red); color:#fff; }
+  .chaos-btn.active { background:var(--red); color:#fff; animation:pulse 1s infinite; }
 
-  /* Main Grid */
-  .main { display: grid; grid-template-columns: 1fr 1.2fr 1fr; gap: 12px; padding: 12px 24px; height: calc(100vh - 64px - 260px); }
-  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
-  .panel-header { padding: 10px 16px; font-weight: 700; font-size: 0.85rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-  .panel-header .count { background: var(--accent); color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; }
-  .panel-body { flex: 1; overflow-y: auto; padding: 8px; }
+  /* ── Layout: 2 rows ── */
+  .layout { display:flex; flex-direction:column; height:calc(100vh - 56px); }
+  .top-row { display:flex; flex:1; min-height:0; }
+  .bottom-row { display:flex; height:280px; border-top:1px solid var(--border); }
 
-  /* Orders */
-  .order-card {
-    padding: 10px 12px; margin-bottom: 6px; border-radius: 8px; background: var(--bg);
-    border-left: 4px solid var(--green); font-size: 0.82rem; display: flex; justify-content: space-between; align-items: center;
+  /* ── Action Center (left panel) ── */
+  .action-center { width:420px; min-width:360px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+
+  /* ── Map (center) ── */
+  .map-area { flex:1; position:relative; }
+  #map { width:100%; height:100%; }
+
+  /* ── Panels ── */
+  .panel { background:var(--surface); display:flex; flex-direction:column; overflow:hidden; }
+  .panel-header {
+    padding:8px 14px; font-weight:700; font-size:0.82rem; border-bottom:1px solid var(--border);
+    display:flex; justify-content:space-between; align-items:center; flex-shrink:0;
   }
-  .order-card.preparing { border-left-color: var(--yellow); }
-  .order-card.ready { border-left-color: var(--orange); }
-  .order-card.out_for_delivery { border-left-color: var(--blue); }
-  .order-card.delivered { border-left-color: var(--green); opacity: 0.5; }
-  .order-card .oid { font-weight: 700; color: var(--accent); }
-  .order-card .customer { color: var(--muted); }
-  .order-card .status-badge {
-    padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
-    text-transform: uppercase; background: var(--surface);
-  }
+  .panel-header .count { background:var(--accent); color:#fff; padding:1px 9px; border-radius:12px; font-size:0.72rem; }
+  .panel-body { flex:1; overflow-y:auto; padding:6px 8px; }
 
-  /* Kitchens */
-  .kitchen-card { padding: 12px; margin-bottom: 6px; border-radius: 8px; background: var(--bg); }
-  .kitchen-card .name { font-weight: 700; font-size: 0.85rem; margin-bottom: 6px; }
-  .kitchen-card .bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-  .kitchen-card .bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
-  .kitchen-card .bar-fill.normal { background: var(--green); }
-  .kitchen-card .bar-fill.busy { background: var(--yellow); }
-  .kitchen-card .bar-fill.overloaded { background: var(--red); }
-  .kitchen-card .info { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+  /* Bottom panels */
+  .bottom-row .panel { flex:1; border-right:1px solid var(--border); }
+  .bottom-row .panel:last-child { border-right:none; }
 
-  /* Alerts */
+  /* ── Alert Cards (Action Center) ── */
   .alert-card {
-    padding: 10px 12px; margin-bottom: 6px; border-radius: 8px; background: var(--bg);
-    border-left: 4px solid var(--yellow); font-size: 0.82rem;
+    padding:12px 14px; margin-bottom:8px; border-radius:10px; background:var(--bg);
+    border-left:4px solid var(--yellow); font-size:0.8rem;
   }
-  .alert-card.high { border-left-color: var(--orange); }
-  .alert-card.critical { border-left-color: var(--critical); animation: pulse 2s infinite; }
-  .alert-card.medium { border-left-color: var(--yellow); }
-  .alert-card.low { border-left-color: var(--muted); }
-  .alert-card.resolved { opacity: 0.4; border-left-color: var(--green); }
-  .alert-card .rule { font-weight: 700; font-size: 0.78rem; }
-  .alert-card .msg { color: var(--muted); font-size: 0.75rem; margin: 3px 0; }
-  .alert-card .action-btn {
-    padding: 4px 12px; border: 1px solid var(--accent); background: transparent;
-    color: var(--accent); border-radius: 6px; cursor: pointer; font-size: 0.72rem; transition: all 0.2s;
+  .alert-card.high { border-left-color:var(--orange); }
+  .alert-card.critical { border-left-color:var(--critical); }
+  .alert-card.medium { border-left-color:var(--yellow); }
+  .alert-card.low { border-left-color:var(--muted); }
+  .alert-card.resolved { opacity:0.35; border-left-color:var(--green); }
+  .alert-sev { font-weight:800; font-size:0.72rem; text-transform:uppercase; margin-bottom:2px; }
+  .alert-sev.critical { color:var(--critical); }
+  .alert-sev.high { color:var(--orange); }
+  .alert-sev.medium { color:var(--yellow); }
+  .alert-time { float:right; color:var(--muted); font-size:0.7rem; font-weight:400; }
+  .alert-action-name { font-weight:700; font-size:0.82rem; margin:4px 0 2px; }
+  .alert-msg { color:var(--muted); font-size:0.74rem; margin:2px 0 4px; }
+  .alert-impact { background:var(--surface2); padding:4px 8px; border-radius:6px; font-size:0.7rem; margin:4px 0 8px; }
+  .alert-impact b { color:var(--orange); }
+  .alert-btns { display:flex; gap:6px; }
+  .alert-btns button {
+    padding:5px 14px; border-radius:6px; font-size:0.72rem; font-weight:700; cursor:pointer; transition:all 0.2s;
   }
-  .alert-card .action-btn:hover { background: var(--accent); color: #fff; }
+  .btn-action { border:1px solid var(--blue); background:rgba(9,132,227,0.15); color:var(--blue); }
+  .btn-action:hover { background:var(--blue); color:#fff; }
+  .btn-dismiss { border:1px solid var(--border); background:transparent; color:var(--muted); }
+  .btn-dismiss:hover { background:var(--border); color:var(--text); }
 
-  /* Map */
-  .map-wrapper { padding: 12px 24px; }
-  .map-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .map-panel .panel-header { padding: 8px 16px; }
-  canvas { width: 100%; height: 220px; display: block; }
+  /* ── Order Cards ── */
+  .order-card {
+    padding:8px 10px; margin-bottom:4px; border-radius:8px; background:var(--bg);
+    display:flex; justify-content:space-between; align-items:center; font-size:0.78rem;
+  }
+  .order-card .oid { font-weight:700; color:var(--accent); font-size:0.75rem; }
+  .order-card .cust-name { font-weight:600; margin-left:6px; }
+  .order-card .items-info { color:var(--muted); font-size:0.68rem; margin-top:1px; }
+  .badge {
+    padding:2px 8px; border-radius:10px; font-size:0.65rem; font-weight:700; text-transform:uppercase;
+  }
+  .badge-placed { background:rgba(108,92,231,0.2); color:var(--accent); }
+  .badge-preparing { background:rgba(253,203,110,0.2); color:var(--yellow); }
+  .badge-ready { background:rgba(225,112,85,0.2); color:var(--orange); }
+  .badge-delivering { background:rgba(0,206,201,0.2); color:var(--teal); }
 
-  /* Scrollbar */
-  .panel-body::-webkit-scrollbar { width: 4px; }
-  .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  /* ── Dispatch Queue ── */
+  .driver-group { margin-bottom:8px; }
+  .driver-row { display:flex; align-items:center; gap:8px; padding:4px 8px; font-size:0.78rem; }
+  .driver-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .driver-name { font-weight:700; flex:1; }
+  .driver-count { background:var(--border); padding:1px 6px; border-radius:8px; font-size:0.65rem; color:var(--muted); }
+  .driver-order {
+    padding:3px 8px; margin:0 8px 3px 24px; border-radius:6px; font-size:0.72rem;
+    background:var(--bg); display:flex; align-items:center; gap:6px;
+  }
+  .driver-order .tag {
+    padding:1px 6px; border-radius:4px; font-size:0.6rem; font-weight:700; text-transform:uppercase;
+  }
+  .tag-delivering { background:rgba(0,206,201,0.2); color:var(--teal); }
+  .tag-returning { background:rgba(253,203,110,0.2); color:var(--yellow); }
 
-  /* Animations */
-  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-  @keyframes slideIn { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .new-item { animation: slideIn 0.3s ease-out; }
+  /* ── Kitchen Cards ── */
+  .kitchen-card {
+    padding:10px 12px; margin-bottom:6px; border-radius:8px; background:var(--bg);
+  }
+  .kitchen-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .kitchen-name { font-weight:700; font-size:0.82rem; }
+  .kitchen-badge {
+    padding:2px 8px; border-radius:10px; font-size:0.62rem; font-weight:700; text-transform:uppercase;
+  }
+  .kb-normal { background:rgba(0,184,148,0.15); color:var(--green); }
+  .kb-busy { background:rgba(253,203,110,0.2); color:var(--yellow); }
+  .kb-overloaded { background:rgba(214,48,49,0.2); color:var(--red); }
+  .bar-bg { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:3px; transition:width 0.5s; }
+  .bar-fill.normal { background:var(--green); }
+  .bar-fill.busy { background:var(--yellow); }
+  .bar-fill.overloaded { background:var(--red); }
+  .kitchen-info { display:flex; justify-content:space-between; font-size:0.68rem; color:var(--muted); margin-top:4px; }
 
-  /* VIP badge */
-  .vip { color: var(--yellow); font-weight: 700; font-size: 0.7rem; }
+  /* ── Dispatch Log ── */
+  .log-entry { padding:6px 10px; margin-bottom:4px; border-radius:6px; background:var(--bg); font-size:0.72rem; }
+  .log-role { font-weight:700; font-size:0.68rem; color:var(--muted); text-transform:uppercase; }
+  .log-tag { float:right; padding:1px 6px; border-radius:4px; font-size:0.6rem; font-weight:600; }
+  .log-tag-teams { background:rgba(9,132,227,0.15); color:var(--blue); }
+  .log-tag-kitchen { background:rgba(225,112,85,0.15); color:var(--orange); }
+  .log-msg { margin-top:2px; }
+  .log-action { color:var(--teal); font-weight:600; cursor:pointer; display:block; margin-top:2px; }
+
+  /* ── Role Views Bar ── */
+  .role-bar {
+    display:flex; gap:10px; padding:6px 14px; background:var(--surface);
+    border-top:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; align-items:center;
+  }
+  .role-bar span { font-size:0.7rem; color:var(--muted); }
+  .role-chip {
+    padding:3px 10px; border-radius:12px; font-size:0.68rem; font-weight:600; cursor:pointer;
+    border:1px solid var(--border); background:var(--bg); transition:all 0.2s;
+  }
+  .role-chip:hover { border-color:var(--accent); }
+  .role-chip.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+
+  /* ── Scrollbar ── */
+  .panel-body::-webkit-scrollbar { width:4px; }
+  .panel-body::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+
+  /* ── Animations ── */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+  @keyframes slideIn { from{transform:translateY(-6px);opacity:0} to{transform:translateY(0);opacity:1} }
+  .new-item { animation:slideIn 0.3s ease-out; }
+
+  /* ── Leaflet dark overrides ── */
+  .leaflet-popup-content-wrapper { background:var(--surface)!important; color:var(--text)!important; border-radius:8px!important; }
+  .leaflet-popup-tip { background:var(--surface)!important; }
+  .leaflet-control-zoom a { background:var(--surface)!important; color:var(--text)!important; border-color:var(--border)!important; }
 </style>
 </head>
 <body>
 
 <!-- Top Bar -->
 <div class="topbar">
-  <h1><span>🍕</span> Pizza Cosmos <span style="color:var(--muted);font-size:0.7rem">RTI</span></h1>
+  <div class="logo">
+    <div class="logo-icon">&#x1F355;</div>
+    <h1>Pizza Cosmos<small>RTI</small></h1>
+  </div>
   <div class="stats">
     <div class="stat"><div class="value" id="stat-orders">0</div><div class="label">Active Orders</div></div>
-    <div class="stat"><div class="value" id="stat-drivers" style="color:var(--blue)">0</div><div class="label">Active Drivers</div></div>
+    <div class="stat"><div class="value" id="stat-drivers" style="color:var(--blue)">0/10</div><div class="label">Drivers Active</div></div>
+    <div class="stat"><div class="value" id="stat-avgdel" style="color:var(--teal)">0</div><div class="label">Avg Delivery (min)</div></div>
+    <div class="stat"><div class="value" id="stat-sla" style="color:var(--green)">100%</div><div class="label">SLA Compliance</div></div>
     <div class="stat"><div class="value" id="stat-delivered" style="color:var(--green)">0</div><div class="label">Delivered</div></div>
-    <div class="stat"><div class="value" id="stat-alerts" style="color:var(--red)">0</div><div class="label">Active Alerts</div></div>
-    <div class="stat"><div class="value" id="stat-sla" style="color:var(--green)">100%</div><div class="label">SLA</div></div>
   </div>
-  <button class="chaos-btn" id="chaos-btn" onclick="toggleChaos()">☠️ CHAOS MODE</button>
+  <button class="chaos-btn" id="chaos-btn" onclick="toggleChaos()">&#x26A1; Chaos Mode</button>
 </div>
 
-<!-- 3-Panel Grid -->
-<div class="main">
-  <!-- Orders Panel -->
-  <div class="panel">
-    <div class="panel-header">📦 Live Orders <span class="count" id="order-count">0</span></div>
-    <div class="panel-body" id="orders-panel"></div>
+<!-- Main Layout -->
+<div class="layout">
+  <!-- Top Row: Action Center + Map -->
+  <div class="top-row">
+    <div class="action-center panel">
+      <div class="panel-header">&#x26A1; Action Center <span class="count" id="alert-count">0</span></div>
+      <div class="panel-body" id="alerts-panel"></div>
+    </div>
+    <div class="map-area">
+      <div id="map"></div>
+    </div>
   </div>
 
-  <!-- Kitchens Panel -->
-  <div class="panel">
-    <div class="panel-header">🍳 Kitchens <span class="count" id="kitchen-count">5</span></div>
-    <div class="panel-body" id="kitchens-panel"></div>
+  <!-- Bottom Row: 4 Panels -->
+  <div class="bottom-row">
+    <div class="panel">
+      <div class="panel-header">Live Orders <span class="count" id="order-count">0</span></div>
+      <div class="panel-body" id="orders-panel"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">&#x1F69A; Dispatch Queue <span class="count" id="dispatch-count">0</span></div>
+      <div class="panel-body" id="dispatch-panel"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">Kitchens <span class="count" id="kitchen-count">5</span></div>
+      <div class="panel-body" id="kitchens-panel"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">&#x1F4CB; Dispatch Log <span class="count" id="log-count">0</span></div>
+      <div class="panel-body" id="log-panel"></div>
+    </div>
   </div>
 
-  <!-- Alerts Panel -->
-  <div class="panel">
-    <div class="panel-header">🚨 Alerts <span class="count" id="alert-count">0</span></div>
-    <div class="panel-body" id="alerts-panel"></div>
-  </div>
-</div>
-
-<!-- Driver Map -->
-<div class="map-wrapper">
-  <div class="map-panel">
-    <div class="panel-header">🗺️ Driver Map</div>
-    <canvas id="map-canvas" height="220"></canvas>
+  <!-- Role Views -->
+  <div class="role-bar">
+    <span>Role Views:</span>
+    <div class="role-chip" data-filter="all" onclick="setFilter('all',this)">All</div>
   </div>
 </div>
 
 <script>
-// --- State ---
-const S = { orders: {}, drivers: {}, kitchens: {}, alerts: {} };
+// ─── State ───
+const S = { orders:{}, drivers:{}, kitchens:{}, alerts:{} };
+const dispatchLog = [];
 let chaosActive = false;
 
-// --- WebSocket ---
+// ─── Leaflet Map ───
+const map = L.map('map',{zoomControl:true}).setView([40.74,-73.96],12);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/">OSM</a>',
+  maxZoom:19
+}).addTo(map);
+
+const kitchenMarkers = {};
+const driverMarkers = {};
+const routeLines = {};
+
+const kitchenIcon = (color) => L.divIcon({
+  className:'',
+  html:`<div style="width:20px;height:20px;background:${color};border:2px solid #fff;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;">&#x1F355;</div>`,
+  iconSize:[20,20], iconAnchor:[10,10]
+});
+
+const driverIcon = (color) => L.divIcon({
+  className:'',
+  html:`<div style="width:14px;height:14px;background:${color};border:2px solid rgba(255,255,255,0.6);border-radius:50%;box-shadow:0 0 6px ${color};"></div>`,
+  iconSize:[14,14], iconAnchor:[7,7]
+});
+
+const driverColors = { available:'#00b894', delivering:'#6c5ce7', returning:'#fdcb6e', offline:'#636e72' };
+
+function updateMapKitchens() {
+  Object.values(S.kitchens).forEach(k => {
+    const color = k.status==='overloaded'?'#d63031':k.status==='busy'?'#fdcb6e':'#0984e3';
+    if (kitchenMarkers[k.kitchen_id]) {
+      kitchenMarkers[k.kitchen_id].setIcon(kitchenIcon(color));
+    } else {
+      kitchenMarkers[k.kitchen_id] = L.marker([k.lat,k.lng],{icon:kitchenIcon(color)})
+        .bindPopup(`<b>${k.name}</b><br>Queue: ${k.queue}/${k.capacity}<br>Status: ${k.status}`)
+        .addTo(map);
+    }
+    kitchenMarkers[k.kitchen_id].setPopupContent(`<b>${k.name}</b><br>Queue: ${k.queue}/${k.capacity}<br>Status: ${k.status}`);
+  });
+}
+
+function updateMapDrivers() {
+  Object.values(S.drivers).forEach(d => {
+    const color = driverColors[d.status]||'#fff';
+    if (driverMarkers[d.driver_id]) {
+      driverMarkers[d.driver_id].setLatLng([d.lat,d.lng]).setIcon(driverIcon(color));
+    } else {
+      driverMarkers[d.driver_id] = L.marker([d.lat,d.lng],{icon:driverIcon(color)})
+        .bindPopup(`<b>${d.driver_id}</b><br>Status: ${d.status}`)
+        .addTo(map);
+    }
+    driverMarkers[d.driver_id].setPopupContent(
+      `<b>${d.driver_id}</b><br>Status: ${d.status}${d.current_order ? '<br>Order: #'+d.current_order : ''}`
+    );
+
+    // Draw route line for delivering drivers
+    if (d.status==='delivering' && d.current_order) {
+      const order = S.orders[d.current_order];
+      if (order) {
+        const pts = [[d.lat,d.lng],[order.delivery_lat,order.delivery_lng]];
+        if (routeLines[d.driver_id]) {
+          routeLines[d.driver_id].setLatLngs(pts);
+        } else {
+          routeLines[d.driver_id] = L.polyline(pts,{color:'#e17055',weight:2,dashArray:'6,8',opacity:0.7}).addTo(map);
+        }
+      }
+    } else if (routeLines[d.driver_id]) {
+      map.removeLayer(routeLines[d.driver_id]);
+      delete routeLines[d.driver_id];
+    }
+  });
+}
+
+// ─── WebSocket ───
 let ws;
 function connect() {
   ws = new WebSocket(`ws://${location.host}/ws`);
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    switch (msg.type) {
+    switch(msg.type) {
       case 'snapshot':
-        Object.assign(S.orders, msg.data.orders || {});
-        Object.assign(S.drivers, msg.data.drivers || {});
-        Object.assign(S.kitchens, msg.data.kitchens || {});
-        Object.assign(S.alerts, msg.data.alerts || {});
+        Object.assign(S.orders, msg.data.orders||{});
+        Object.assign(S.drivers, msg.data.drivers||{});
+        Object.assign(S.kitchens, msg.data.kitchens||{});
+        Object.assign(S.alerts, msg.data.alerts||{});
         renderAll();
         break;
       case 'order':
         S.orders[msg.data.order_id] = msg.data;
-        renderOrders();
+        renderOrders(); renderDispatch();
         break;
       case 'driver':
         Object.assign(S.drivers, msg.data);
-        renderMap();
+        updateMapDrivers(); renderDispatch();
         break;
       case 'kitchen':
         Object.assign(S.kitchens, msg.data);
-        renderKitchens();
+        renderKitchens(); updateMapKitchens();
         break;
       case 'alert':
         S.alerts[msg.data.alert_id] = msg.data;
-        renderAlerts();
+        addLog(msg.data);
+        renderAlerts(); renderLog();
         break;
       case 'alert_resolved':
-        if (S.alerts[msg.data.alert_id]) S.alerts[msg.data.alert_id].status = 'resolved';
+        if(S.alerts[msg.data.alert_id]) S.alerts[msg.data.alert_id].status='resolved';
         renderAlerts();
         break;
       case 'chaos':
         chaosActive = msg.data.active;
-        document.getElementById('chaos-btn').classList.toggle('active', chaosActive);
+        document.getElementById('chaos-btn').classList.toggle('active',chaosActive);
         break;
     }
     updateStats();
   };
-  ws.onclose = () => setTimeout(connect, 2000);
+  ws.onclose = () => setTimeout(connect,2000);
 }
 connect();
 
-// --- Stats ---
+// ─── Stats ───
 function updateStats() {
   const orders = Object.values(S.orders);
-  const active = orders.filter(o => !['delivered','cancelled'].includes(o.status));
-  const delivered = orders.filter(o => o.status === 'delivered').length;
-  const drivers = Object.values(S.drivers).filter(d => d.status !== 'offline').length;
-  const activeAlerts = Object.values(S.alerts).filter(a => a.status === 'active').length;
+  const active = orders.filter(o=>!['delivered','cancelled'].includes(o.status));
+  const delivered = orders.filter(o=>o.status==='delivered');
+  const driversList = Object.values(S.drivers);
+  const onlineDrivers = driversList.filter(d=>d.status!=='offline').length;
+  const activeAlerts = Object.values(S.alerts).filter(a=>a.status==='active').length;
   const total = orders.length;
-  const sla = total > 0 ? Math.round((delivered / Math.max(total, 1)) * 100) : 100;
+  const sla = total>0 ? ((delivered.length/Math.max(total,1))*100).toFixed(1) : '100.0';
+
+  // Avg delivery time estimate (mock: random between 4-8 based on orders)
+  const avgDel = active.length>0 ? Math.max(3, Math.round(5 + active.length*0.1)) : 0;
 
   document.getElementById('stat-orders').textContent = active.length;
-  document.getElementById('stat-drivers').textContent = drivers;
-  document.getElementById('stat-delivered').textContent = delivered;
-  document.getElementById('stat-alerts').textContent = activeAlerts;
-  document.getElementById('stat-sla').textContent = sla + '%';
-  document.getElementById('stat-sla').style.color = sla > 80 ? 'var(--green)' : sla > 60 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('stat-drivers').textContent = `${onlineDrivers}/${driversList.length||10}`;
+  document.getElementById('stat-avgdel').textContent = avgDel;
+  document.getElementById('stat-delivered').textContent = delivered.length;
+  document.getElementById('stat-sla').textContent = sla+'%';
+  document.getElementById('stat-sla').style.color = parseFloat(sla)>90?'var(--green)':parseFloat(sla)>70?'var(--yellow)':'var(--red)';
   document.getElementById('order-count').textContent = active.length;
   document.getElementById('alert-count').textContent = activeAlerts;
+  document.getElementById('kitchen-count').textContent = Object.keys(S.kitchens).length;
 }
 
-// --- Render Orders ---
+// ─── Render Orders ───
 function renderOrders() {
   const panel = document.getElementById('orders-panel');
   const orders = Object.values(S.orders)
-    .filter(o => o.status !== 'delivered')
-    .sort((a, b) => (b.placed_at || '').localeCompare(a.placed_at || ''))
-    .slice(0, 50);
-  panel.innerHTML = orders.map(o => `
-    <div class="order-card ${o.status} new-item">
+    .filter(o=>o.status!=='delivered')
+    .sort((a,b)=>(b.placed_at||'').localeCompare(a.placed_at||''))
+    .slice(0,60);
+  panel.innerHTML = orders.map(o => {
+    const badgeClass = o.status==='received'?'badge-placed':
+      o.status==='preparing'?'badge-preparing':
+      o.status==='ready'?'badge-ready':'badge-delivering';
+    const label = o.status==='received'?'placed':o.status.replace(/_/g,' ');
+    return `<div class="order-card new-item">
       <div>
-        <span class="oid">#${o.order_id}</span>
-        <span class="customer">${o.customer}</span>
-        ${o.is_vip ? '<span class="vip">⭐VIP</span>' : ''}
-        <div style="color:var(--muted);font-size:0.7rem;margin-top:2px">${o.items ? o.items.join(', ') : ''}</div>
+        <span class="oid">PC-${o.order_id.slice(0,3).toUpperCase()}</span>
+        <span class="cust-name">${o.customer}${o.is_vip?' &#x2B50;':''}</span>
+        <div class="items-info">${(o.items||[]).join(', ')} &middot; ${o.kitchen_name||''}</div>
       </div>
-      <span class="status-badge">${o.status.replace(/_/g,' ')}</span>
-    </div>
-  `).join('');
-  updateStats();
-}
-
-// --- Render Kitchens ---
-function renderKitchens() {
-  const panel = document.getElementById('kitchens-panel');
-  const kitchens = Object.values(S.kitchens);
-  panel.innerHTML = kitchens.map(k => {
-    const pct = Math.round((k.queue / k.capacity) * 100);
-    return `
-      <div class="kitchen-card">
-        <div class="name">${k.name} <span style="float:right;font-size:0.72rem;color:var(--muted)">${k.status}</span></div>
-        <div class="bar-bg"><div class="bar-fill ${k.status}" style="width:${pct}%"></div></div>
-        <div class="info"><span>Queue: ${k.queue}/${k.capacity}</span><span>Prep: ~${k.avg_prep_time}min</span></div>
-      </div>`;
+      <span class="badge ${badgeClass}">${label}</span>
+    </div>`;
   }).join('');
 }
 
-// --- Render Alerts ---
+// ─── Render Dispatch Queue ───
+function renderDispatch() {
+  const panel = document.getElementById('dispatch-panel');
+  const driversList = Object.values(S.drivers).filter(d=>d.status!=='offline');
+  const totalAssigned = driversList.filter(d=>d.current_order).length;
+  document.getElementById('dispatch-count').textContent = totalAssigned;
+
+  panel.innerHTML = driversList.map(d => {
+    const color = driverColors[d.status]||'#fff';
+    const order = d.current_order ? S.orders[d.current_order] : null;
+    const assignedCount = d.current_order ? 1 : 0;
+    let orderHtml = '';
+    if (order) {
+      const tag = d.status==='delivering'?'tag-delivering':'tag-returning';
+      const tagLabel = d.status==='delivering'?'DELIVERING':'RETURNING';
+      orderHtml = `<div class="driver-order">
+        <span class="oid" style="font-size:0.7rem;font-weight:700;color:var(--accent)">PC-${order.order_id.slice(0,3).toUpperCase()}</span>
+        ${order.customer}
+        <span class="tag ${tag}">${tagLabel}</span>
+      </div>`;
+    }
+    return `<div class="driver-group">
+      <div class="driver-row">
+        <div class="driver-dot" style="background:${color}"></div>
+        <span class="driver-name">${d.driver_id.replace('Driver_','')}</span>
+        <span class="driver-count">${assignedCount}</span>
+      </div>
+      ${orderHtml}
+    </div>`;
+  }).join('');
+}
+
+// ─── Render Kitchens ───
+function renderKitchens() {
+  const panel = document.getElementById('kitchens-panel');
+  panel.innerHTML = Object.values(S.kitchens).map(k => {
+    const pct = Math.round((k.queue/k.capacity)*100);
+    const bc = k.status==='overloaded'?'kb-overloaded':k.status==='busy'?'kb-busy':'kb-normal';
+    return `<div class="kitchen-card">
+      <div class="kitchen-top">
+        <span class="kitchen-name">${k.name}</span>
+        <span class="kitchen-badge ${bc}">${k.status}</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill ${k.status}" style="width:${pct}%"></div></div>
+      <div class="kitchen-info"><span>${k.queue}/${k.capacity}</span><span>~${k.avg_prep_time} min</span></div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Render Alerts (Action Center) ───
 function renderAlerts() {
   const panel = document.getElementById('alerts-panel');
   const alerts = Object.values(S.alerts)
-    .sort((a, b) => {
-      if (a.status === 'active' && b.status !== 'active') return -1;
-      if (a.status !== 'active' && b.status === 'active') return 1;
-      const sev = { critical: 0, high: 1, medium: 2, low: 3 };
-      return (sev[a.severity] ?? 4) - (sev[b.severity] ?? 4);
+    .sort((a,b) => {
+      if(a.status==='active'&&b.status!=='active') return -1;
+      if(a.status!=='active'&&b.status==='active') return 1;
+      const sev={critical:0,high:1,medium:2,low:3};
+      return (sev[a.severity]??4)-(sev[b.severity]??4);
     })
-    .slice(0, 40);
-  panel.innerHTML = alerts.map(a => `
-    <div class="alert-card ${a.severity} ${a.status === 'resolved' ? 'resolved' : ''} new-item">
-      <div class="rule">${severityIcon(a.severity)} ${a.rule}</div>
-      <div class="msg">${a.message}</div>
-      ${a.status === 'active'
-        ? `<button class="action-btn" onclick="resolveAlert('${a.alert_id}')">${a.recommended_action}</button>`
-        : '<span style="color:var(--green);font-size:0.72rem">✓ Resolved</span>'}
+    .slice(0,30);
+
+  panel.innerHTML = alerts.map(a => {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    const isResolved = a.status==='resolved';
+    return `<div class="alert-card ${a.severity} ${isResolved?'resolved':''} new-item">
+      <div class="alert-sev ${a.severity}">${a.severity.toUpperCase()}<span class="alert-time">${timeStr}</span></div>
+      ${a.message ? `<div style="font-size:0.72rem;color:var(--muted);margin:2px 0">CONDITION ${a.message.substring(0,80)}</div>` : ''}
+      <div class="alert-action-name">&rarr; ${a.recommended_action||a.rule}</div>
+      <div class="alert-msg">${a.message||''}</div>
+      ${!isResolved ? `
+        <div class="alert-btns">
+          <button class="btn-action" onclick="resolveAlert('${a.alert_id}')">${a.recommended_action||'Resolve'}</button>
+          <button class="btn-dismiss" onclick="resolveAlert('${a.alert_id}')">Dismiss</button>
+        </div>
+      ` : '<span style="color:var(--green);font-size:0.7rem">&#x2713; Resolved</span>'}
+    </div>`;
+  }).join('');
+}
+
+// ─── Dispatch Log ───
+function addLog(alert) {
+  dispatchLog.unshift({
+    time: new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}),
+    role: alert.severity==='critical'?'MANAGER':'LINE_COOK',
+    tag: alert.severity==='critical'||alert.severity==='high'?'Teams':'Kitchen Screen',
+    tagClass: alert.severity==='critical'||alert.severity==='high'?'log-tag-teams':'log-tag-kitchen',
+    msg: alert.message||'',
+    action: alert.recommended_action||'',
+    isVip: (alert.message||'').toLowerCase().includes('vip'),
+  });
+  if(dispatchLog.length>50) dispatchLog.length=50;
+}
+
+function renderLog() {
+  const panel = document.getElementById('log-panel');
+  document.getElementById('log-count').textContent = dispatchLog.length;
+  panel.innerHTML = dispatchLog.slice(0,20).map(l => `
+    <div class="log-entry new-item">
+      <span class="log-role">${l.role} ${l.isVip?'&#x2B50; VIP':''}</span>
+      <span class="log-tag ${l.tagClass}">${l.tag}</span>
+      <div class="log-msg">${l.msg.substring(0,120)}</div>
+      ${l.action ? `<span class="log-action">&rarr; ${l.action}</span>` : ''}
     </div>
   `).join('');
-  updateStats();
 }
 
-function severityIcon(s) {
-  return { critical: '🔴', high: '🟠', medium: '🟡', low: '⚪' }[s] || '⚪';
-}
-
-// --- Actions ---
+// ─── Actions ───
 async function resolveAlert(id) {
-  await fetch('/action', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({alert_id: id}) });
+  await fetch('/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alert_id:id})});
 }
-
 async function toggleChaos() {
-  await fetch('/chaos', { method: 'POST' });
+  await fetch('/chaos',{method:'POST'});
 }
 
-// --- Driver Map ---
-function renderMap() {
-  const canvas = document.getElementById('map-canvas');
-  const ctx = canvas.getContext('2d');
-  canvas.width = canvas.offsetWidth;
-  canvas.height = 220;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Compute bounds from all kitchens + drivers
-  const allLats = [], allLngs = [];
-  Object.values(S.kitchens).forEach(k => { allLats.push(k.lat); allLngs.push(k.lng); });
-  Object.values(S.drivers).forEach(d => { allLats.push(d.lat); allLngs.push(d.lng); });
-  if (!allLats.length) return;
-
-  const minLat = Math.min(...allLats) - 0.005, maxLat = Math.max(...allLats) + 0.005;
-  const minLng = Math.min(...allLngs) - 0.005, maxLng = Math.max(...allLngs) + 0.005;
-  const pad = 30;
-  const w = canvas.width - pad * 2, h = canvas.height - pad * 2;
-  const toX = lng => pad + ((lng - minLng) / (maxLng - minLng)) * w;
-  const toY = lat => pad + h - ((lat - minLat) / (maxLat - minLat)) * h;
-
-  // Grid
-  ctx.strokeStyle = '#1e2030'; ctx.lineWidth = 1;
-  for (let i = 0; i <= 5; i++) { const y = pad + (h / 5) * i; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(pad + w, y); ctx.stroke(); }
-  for (let i = 0; i <= 8; i++) { const x = pad + (w / 8) * i; ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, pad + h); ctx.stroke(); }
-
-  // Kitchens (blue squares)
-  Object.values(S.kitchens).forEach(k => {
-    const x = toX(k.lng), y = toY(k.lat);
-    ctx.fillStyle = k.status === 'overloaded' ? '#d63031' : k.status === 'busy' ? '#fdcb6e' : '#0984e3';
-    ctx.fillRect(x - 8, y - 8, 16, 16);
-    ctx.fillStyle = '#fff'; ctx.font = '9px Segoe UI'; ctx.textAlign = 'center';
-    ctx.fillText(k.name, x, y - 12);
-  });
-
-  // Drivers (colored dots)
-  const driverColors = { available: '#00b894', delivering: '#6c5ce7', returning: '#fdcb6e', offline: '#636e72' };
-  Object.values(S.drivers).forEach(d => {
-    const x = toX(d.lng), y = toY(d.lat);
-    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2);
-    ctx.fillStyle = driverColors[d.status] || '#fff'; ctx.fill();
-    ctx.fillStyle = '#8b8fa3'; ctx.font = '8px Segoe UI'; ctx.textAlign = 'center';
-    ctx.fillText(d.driver_id, x, y + 14);
-  });
-
-  // Legend
-  ctx.font = '10px Segoe UI'; ctx.textAlign = 'left';
-  let lx = pad;
-  [['🟦 Kitchen','#0984e3'],['🟢 Available','#00b894'],['🟣 Delivering','#6c5ce7'],['🟡 Returning','#fdcb6e'],['⚫ Offline','#636e72']].forEach(([label, color]) => {
-    ctx.fillStyle = color; ctx.fillText(label, lx, canvas.height - 6); lx += ctx.measureText(label).width + 16;
-  });
+// ─── Role View Filter ───
+function setFilter(filter, el) {
+  document.querySelectorAll('.role-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  // Future: filter panels by role
 }
 
-function renderAll() { renderOrders(); renderKitchens(); renderAlerts(); renderMap(); }
-setInterval(renderMap, 2000);
-window.addEventListener('resize', renderMap);
+// ─── Build Role Chips ───
+function buildRoleChips() {
+  const bar = document.querySelector('.role-bar');
+  const chips = [['all','All']];
+  Object.values(S.drivers).forEach((d,i) => chips.push([d.driver_id, `D${i+1} ${d.driver_id.replace('Driver_','')}`]));
+  Object.values(S.kitchens).forEach(k => chips.push([k.kitchen_id, k.name]));
+  bar.innerHTML = '<span>Role Views:</span>' + chips.map(([id,label],i) =>
+    `<div class="role-chip ${i===0?'active':''}" data-filter="${id}" onclick="setFilter('${id}',this)">${label}</div>`
+  ).join('');
+}
+
+// ─── Render All ───
+function renderAll() {
+  renderOrders(); renderKitchens(); renderAlerts(); renderDispatch(); renderLog();
+  updateMapKitchens(); updateMapDrivers();
+  buildRoleChips();
+}
+
+// Periodic map update
+setInterval(()=>{ updateMapDrivers(); updateMapKitchens(); }, 2000);
 </script>
 </body>
 </html>
