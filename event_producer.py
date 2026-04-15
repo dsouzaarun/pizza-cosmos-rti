@@ -371,7 +371,7 @@ async def produce_drivers(state: PizzaState, ingestor: KqlIngestor):
                 "status": driver["status"],
                 "latitude": round(driver["lat"], 6),
                 "longitude": round(driver["lng"], 6),
-                "current_order_id": driver.get("current_order", ""),
+                "current_order_id": driver.get("current_order") or "",
                 "speed": driver["speed"],
             }
             ingestor.ingest_driver(event)

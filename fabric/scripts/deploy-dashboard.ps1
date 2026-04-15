@@ -135,7 +135,7 @@ $t1_alerts = New-Tile -Title "Active Alerts" `
 $t1_map = New-Tile -Title "Live Delivery Map" `
     -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | project Name = DriverName, Latitude, Longitude, Category = Status, Info = strcat('Speed: ', tostring(round(Speed, 1)), ' mph')" `
     -VisualType "map" -X 0 -Y 18 -W 14 -H 12 -PageId $page1Id -DsId $dsId `
-    -VisualOptions @{ defineLocationBy = "latitude and longitude" }
+    -VisualOptions @{ defineLocationBy = "latitude and longitude"; latitudeColumn = "Latitude"; longitudeColumn = "Longitude" }
 
 $t1_ordersTrend = New-Tile -Title "Orders Per Minute (30m)" `
     -Query "Orders | where Timestamp > ago(30m) | summarize OrderCount = dcount(OrderId) by bin(Timestamp, 1m) | order by Timestamp asc" `
