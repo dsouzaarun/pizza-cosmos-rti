@@ -96,11 +96,11 @@ function New-Tile([string]$Title, [string]$Query, [string]$VisualType, [int]$X, 
 }
 
 $tiles = @(
-    (New-Tile -Title "Active Orders" -Query "Orders | where Timestamp > ago(1h) | summarize arg_max(Timestamp, *) by OrderId | where Status !in ('delivered', 'cancelled') | count" -VisualType "stat" -X 0 -Y 0 -W 9 -H 7 -PageId $pageId -DsId $dsId),
-    (New-Tile -Title "Drivers Online" -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | where Status != 'offline' | count" -VisualType "stat" -X 9 -Y 0 -W 9 -H 7 -PageId $pageId -DsId $dsId),
-    (New-Tile -Title "Avg Delivery (min)" -Query "Orders | where Timestamp > ago(1h) | where Status == 'delivered' | summarize AvgMinutes = round(avg(EstimatedDeliveryMinutes), 0)" -VisualType "stat" -X 0 -Y 7 -W 9 -H 7 -PageId $pageId -DsId $dsId),
-    (New-Tile -Title "SLA %" -Query "SlaCompliance(1h) | project SlaPercent" -VisualType "stat" -X 9 -Y 7 -W 9 -H 7 -PageId $pageId -DsId $dsId),
-    (New-Tile -Title "Active Alerts" -Query "Alerts | where Timestamp > ago(1h) | where IsResolved == false | count" -VisualType "stat" -X 0 -Y 14 -W 9 -H 7 -PageId $pageId -DsId $dsId),
+    (New-Tile -Title "Active Orders" -Query "Orders | where Timestamp > ago(1h) | summarize arg_max(Timestamp, *) by OrderId | where Status !in ('delivered', 'cancelled') | count" -VisualType "multistat" -X 0 -Y 0 -W 9 -H 7 -PageId $pageId -DsId $dsId),
+    (New-Tile -Title "Drivers Online" -Query "DriverUpdates | where Timestamp > ago(5m) | summarize arg_max(Timestamp, *) by DriverId | where Status != 'offline' | count" -VisualType "multistat" -X 9 -Y 0 -W 9 -H 7 -PageId $pageId -DsId $dsId),
+    (New-Tile -Title "Avg Delivery (min)" -Query "Orders | where Timestamp > ago(1h) | where Status == 'delivered' | summarize AvgMinutes = round(avg(EstimatedDeliveryMinutes), 0)" -VisualType "multistat" -X 0 -Y 7 -W 9 -H 7 -PageId $pageId -DsId $dsId),
+    (New-Tile -Title "SLA %" -Query "SlaCompliance(1h) | project SlaPercent" -VisualType "multistat" -X 9 -Y 7 -W 9 -H 7 -PageId $pageId -DsId $dsId),
+    (New-Tile -Title "Active Alerts" -Query "Alerts | where Timestamp > ago(1h) | where IsResolved == false | count" -VisualType "multistat" -X 0 -Y 14 -W 9 -H 7 -PageId $pageId -DsId $dsId),
     (New-Tile -Title "Orders Per Minute" -Query "OrdersPerMinute(30m)" -VisualType "line" -X 9 -Y 14 -W 11 -H 8 -PageId $pageId -DsId $dsId),
     (New-Tile -Title "Kitchen Utilization" -Query "KitchenLoadHeatmap() | project KitchenName, UtilizationPercent" -VisualType "bar" -X 0 -Y 22 -W 10 -H 8 -PageId $pageId -DsId $dsId),
     (New-Tile -Title "Driver Fleet Status" -Query "DriverFleetStatus() | project DriverName, Status, CurrentOrderId, Speed" -VisualType "table" -X 10 -Y 22 -W 10 -H 8 -PageId $pageId -DsId $dsId),
