@@ -1,0 +1,75 @@
+// ============================================================
+// Pizza Cosmos — Reusable KQL Queries
+// Use with: eventhouse-consumption-cli skill
+// ============================================================
+
+// --- Dashboard Tile: Active Order Count ---
+Orders
+| where Timestamp > ago(1h)
+| summarize arg_max(Timestamp, *) by OrderId
+| where Status !in ("delivered", "cancelled")
+| count
+
+// --- Dashboard Tile: Driver Availability ---
+DriverUpdates
+| where Timestamp > ago(5m)
+| summarize arg_max(Timestamp, *) by DriverId
+| summarize
+    Available = countif(Status == "available"),
+    Delivering = countif(Status == "delivering"),
+    Returning = countif(Status == "returning"),
+    Offline = countif(Status == "offline"),
+    Total = count()
+
+// --- Dashboard Tile: Kitchen Utilization Bar Chart ---
+KitchenMetrics
+| where Timestamp > ago(10m)
+| summarize arg_max(Timestamp, *) by KitchenId
+| project KitchenName, UtilizationPercent
+| order by UtilizationPercent desc
+| render barchart with (title="Kitchen Utilization %", ycolumns=UtilizationPercent)
+
+// --- Dashboard Tile: Orders Over Time (timechart) ---
+Orders
+| where Timestamp > ago(1h)
+| where EventType == "order_placed"
+| summarize OrderCount = count() by bin(Timestamp, 1m)
+| render timechart with (title="Orders Per Minute")
+
+// --- Dashboard Tile: SLA Compliance Gauge ---
+Orders
+| where Timestamp > ago(1h)
+| where Status == "delivered"
+| extend IsOnTime = EstimatedDeliveryMinutes > 0
+| summarize SlaPercent = round(100.0 * countif(IsOnTime) / count(), 1)
+
+// --- Dashboard Tile: Active Alerts ---
+Alerts
+| where Timestamp > ago(1h)
+| where IsResolved == false
+| project Timestamp, Severity, RuleName, EntityId, Message, RecommendedAction
+| order by case(Severity == "critical", 0, Severity == "high", 1, Severity == "medium", 2, 3) asc, Timestamp desc
+
+// --- Dashboard Tile: Driver Map Data ---
+DriverUpdates
+| where Timestamp > ago(5m)
+| summarize arg_max(Timestamp, *) by DriverId
+| project DriverName, Latitude, Longitude, Status, CurrentOrderId
+
+// --- Dashboard Tile: VIP Order Tracker ---
+Orders
+| where Timestamp > ago(2h)
+| where IsVip == true
+| summarize arg_max(Timestamp, *) by OrderId
+| where Status !in ("delivered", "cancelled")
+| project OrderId, CustomerName, Status, KitchenName, DriverId, EstimatedDeliveryMinutes
+| order by Timestamp desc
+
+// --- Anomaly: Order Spike Detection ---
+Orders
+| where Timestamp > ago(1h)
+| where EventType == "order_placed"
+| summarize OrderCount = count() by bin(Timestamp, 5m)
+| extend AvgRate = avg_of(OrderCount, prev(OrderCount, 1), prev(OrderCount, 2))
+| where OrderCount > AvgRate * 2.0
+| project Timestamp, OrderCount, AvgRate, SpikeRatio = round(toreal(OrderCount) / AvgRate, 1)

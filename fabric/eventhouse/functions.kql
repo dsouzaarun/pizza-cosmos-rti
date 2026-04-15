@@ -1,0 +1,165 @@
+// ============================================================
+// Pizza Cosmos — KQL Stored Functions
+// Database: PizzaCosmosDB
+// ============================================================
+// These functions power the Real-Time Dashboard tiles and
+// implement the IQ Intelligence Layer business rules.
+// ============================================================
+
+// --- SLA Compliance ---
+// Calculate % of orders delivered within estimated time
+.create-or-alter function SlaCompliance(timeWindow: timespan = 1h) {
+    Orders
+    | where Timestamp > ago(timeWindow)
+    | where Status == "delivered"
+    | extend IsOnTime = EstimatedDeliveryMinutes > 0
+    | summarize
+        TotalDelivered = count(),
+        OnTime = countif(IsOnTime),
+        SlaPercent = round(100.0 * countif(IsOnTime) / count(), 1)
+}
+
+// --- Active Orders Summary ---
+// Current snapshot of in-flight orders by status
+.create-or-alter function ActiveOrders() {
+    Orders
+    | where Timestamp > ago(1h)
+    | summarize arg_max(Timestamp, *) by OrderId
+    | where Status !in ("delivered", "cancelled")
+    | summarize
+        Total = count(),
+        Preparing = countif(Status == "preparing"),
+        InTransit = countif(Status == "in_transit"),
+        Ready = countif(Status == "ready"),
+        VipOrders = countif(IsVip)
+}
+
+// --- Kitchen Load Heatmap ---
+// Current utilization across all kitchens
+.create-or-alter function KitchenLoadHeatmap() {
+    KitchenMetrics
+    | where Timestamp > ago(10m)
+    | summarize arg_max(Timestamp, *) by KitchenId
+    | project
+        KitchenName,
+        QueueDepth,
+        Capacity,
+        UtilizationPercent,
+        Status,
+        AvgPrepTimeMinutes,
+        HealthIcon = case(
+            UtilizationPercent > 80, "🔴",
+            UtilizationPercent > 50, "🟡",
+            "🟢"
+        )
+    | order by UtilizationPercent desc
+}
+
+// --- Driver Fleet Status ---
+// Real-time driver positions and availability
+.create-or-alter function DriverFleetStatus() {
+    DriverUpdates
+    | where Timestamp > ago(5m)
+    | summarize arg_max(Timestamp, *) by DriverId
+    | project
+        DriverName,
+        Status,
+        Latitude,
+        Longitude,
+        CurrentOrderId,
+        Speed,
+        StatusIcon = case(
+            Status == "delivering", "🚗",
+            Status == "returning", "↩️",
+            Status == "available", "✅",
+            Status == "offline", "⛔",
+            "❓"
+        )
+    | order by Status asc
+}
+
+// --- Late Delivery Risk (IQ Rule) ---
+// Orders at risk of exceeding SLA
+.create-or-alter function LateDeliveryRisk() {
+    let activeOrders = Orders
+    | where Timestamp > ago(1h)
+    | summarize arg_max(Timestamp, *) by OrderId
+    | where Status == "in_transit";
+    let driverPositions = DriverUpdates
+    | where Timestamp > ago(5m)
+    | summarize arg_max(Timestamp, *) by DriverId;
+    activeOrders
+    | join kind=inner driverPositions on $left.DriverId == $right.DriverId
+    | extend MinutesRemaining = datetime_diff('minute', Timestamp + totimespan(strcat(EstimatedDeliveryMinutes, "m")), now())
+    | where MinutesRemaining < 5
+    | project
+        OrderId,
+        CustomerName,
+        IsVip,
+        DriverName,
+        MinutesRemaining,
+        DriverLatitude = Latitude1,
+        DriverLongitude = Longitude1,
+        Severity = iff(IsVip, "critical", "high")
+    | order by MinutesRemaining asc
+}
+
+// --- Kitchen Overload Detection (IQ Rule) ---
+// Kitchens exceeding 80% capacity
+.create-or-alter function KitchenOverloadDetection() {
+    KitchenMetrics
+    | where Timestamp > ago(10m)
+    | summarize
+        AvgUtilization = avg(UtilizationPercent),
+        MaxUtilization = max(UtilizationPercent),
+        OverloadedChecks = countif(UtilizationPercent > 80),
+        TotalChecks = count()
+        by KitchenId, KitchenName
+    | where OverloadedChecks >= 2
+    | project
+        KitchenId,
+        KitchenName,
+        AvgUtilization = round(AvgUtilization, 1),
+        MaxUtilization = round(MaxUtilization, 1),
+        OverloadedChecks,
+        Severity = iff(MaxUtilization > 95, "critical", "high"),
+        RecommendedAction = "Pause new orders to this kitchen"
+}
+
+// --- Order-Driver-Kitchen Ontology View ---
+// Joins all three entity types for relationship graph
+.create-or-alter function OrderDriverKitchenGraph() {
+    let latestOrders = Orders
+    | where Timestamp > ago(1h)
+    | summarize arg_max(Timestamp, *) by OrderId
+    | where Status !in ("delivered", "cancelled");
+    let latestDrivers = DriverUpdates
+    | where Timestamp > ago(5m)
+    | summarize arg_max(Timestamp, *) by DriverId;
+    let latestKitchens = KitchenMetrics
+    | where Timestamp > ago(10m)
+    | summarize arg_max(Timestamp, *) by KitchenId;
+    latestOrders
+    | join kind=leftouter latestDrivers on $left.DriverId == $right.DriverId
+    | join kind=leftouter latestKitchens on $left.KitchenId == $right.KitchenId
+    | project
+        OrderId,
+        CustomerName,
+        IsVip,
+        OrderStatus = Status,
+        KitchenName,
+        KitchenUtilization = UtilizationPercent,
+        DriverName,
+        DriverStatus = Status1,
+        DriverLat = Latitude,
+        DriverLng = Longitude
+}
+
+// --- Orders Per Minute (time-series) ---
+.create-or-alter function OrdersPerMinute(timeWindow: timespan = 30m) {
+    Orders
+    | where Timestamp > ago(timeWindow)
+    | where EventType == "order_placed"
+    | summarize OrderCount = count() by bin(Timestamp, 1m)
+    | order by Timestamp asc
+}

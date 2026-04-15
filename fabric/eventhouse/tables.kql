@@ -1,0 +1,169 @@
+// ============================================================
+// Pizza Cosmos — KQL Database Table Definitions
+// Database: PizzaCosmosDB
+// ============================================================
+// Deploy with: eventhouse-authoring-cli skill pattern
+//   .create-merge is idempotent — safe to re-run
+// ============================================================
+
+// --- Orders Table ---
+// Tracks every pizza order from placement through delivery
+.create-merge table Orders (
+    Timestamp: datetime,
+    OrderId: string,
+    CustomerId: string,
+    CustomerName: string,
+    IsVip: bool,
+    KitchenId: string,
+    KitchenName: string,
+    Items: dynamic,
+    ItemCount: int,
+    Status: string,
+    EstimatedDeliveryMinutes: int,
+    DriverId: string,
+    EventType: string
+)
+
+// --- DriverUpdates Table ---
+// Real-time GPS and status updates from delivery drivers
+.create-merge table DriverUpdates (
+    Timestamp: datetime,
+    DriverId: string,
+    DriverName: string,
+    Latitude: real,
+    Longitude: real,
+    Status: string,
+    CurrentOrderId: string,
+    Speed: real,
+    Heading: real,
+    EventType: string
+)
+
+// --- KitchenMetrics Table ---
+// Kitchen utilization, queue depth, and capacity metrics
+.create-merge table KitchenMetrics (
+    Timestamp: datetime,
+    KitchenId: string,
+    KitchenName: string,
+    QueueDepth: int,
+    Capacity: int,
+    UtilizationPercent: real,
+    AvgPrepTimeMinutes: real,
+    Status: string,
+    ActiveOrders: int,
+    EventType: string
+)
+
+// --- Alerts Table ---
+// IQ-generated alerts from intelligence rules
+.create-merge table Alerts (
+    Timestamp: datetime,
+    AlertId: string,
+    RuleName: string,
+    Severity: string,
+    EntityType: string,
+    EntityId: string,
+    Message: string,
+    RecommendedAction: string,
+    IsResolved: bool,
+    ResolvedAt: datetime,
+    EventType: string
+)
+
+// ============================================================
+// Ingestion Mappings (JSON format from EventStream)
+// ============================================================
+
+.create-or-alter table Orders ingestion json mapping 'OrdersJsonMapping'
+```
+[
+    {"column": "Timestamp",                 "path": "$.timestamp",                   "datatype": "datetime"},
+    {"column": "OrderId",                   "path": "$.order_id",                    "datatype": "string"},
+    {"column": "CustomerId",                "path": "$.customer_id",                 "datatype": "string"},
+    {"column": "CustomerName",              "path": "$.customer_name",               "datatype": "string"},
+    {"column": "IsVip",                     "path": "$.is_vip",                      "datatype": "bool"},
+    {"column": "KitchenId",                 "path": "$.kitchen_id",                  "datatype": "string"},
+    {"column": "KitchenName",               "path": "$.kitchen_name",                "datatype": "string"},
+    {"column": "Items",                     "path": "$.items",                       "datatype": "dynamic"},
+    {"column": "ItemCount",                 "path": "$.item_count",                  "datatype": "int"},
+    {"column": "Status",                    "path": "$.status",                      "datatype": "string"},
+    {"column": "EstimatedDeliveryMinutes",  "path": "$.estimated_delivery_minutes",  "datatype": "int"},
+    {"column": "DriverId",                  "path": "$.driver_id",                   "datatype": "string"},
+    {"column": "EventType",                 "path": "$.event_type",                  "datatype": "string"}
+]
+```
+
+.create-or-alter table DriverUpdates ingestion json mapping 'DriverUpdatesJsonMapping'
+```
+[
+    {"column": "Timestamp",       "path": "$.timestamp",         "datatype": "datetime"},
+    {"column": "DriverId",        "path": "$.driver_id",         "datatype": "string"},
+    {"column": "DriverName",      "path": "$.driver_name",       "datatype": "string"},
+    {"column": "Latitude",        "path": "$.latitude",          "datatype": "real"},
+    {"column": "Longitude",       "path": "$.longitude",         "datatype": "real"},
+    {"column": "Status",          "path": "$.status",            "datatype": "string"},
+    {"column": "CurrentOrderId",  "path": "$.current_order_id",  "datatype": "string"},
+    {"column": "Speed",           "path": "$.speed",             "datatype": "real"},
+    {"column": "Heading",         "path": "$.heading",           "datatype": "real"},
+    {"column": "EventType",       "path": "$.event_type",        "datatype": "string"}
+]
+```
+
+.create-or-alter table KitchenMetrics ingestion json mapping 'KitchenMetricsJsonMapping'
+```
+[
+    {"column": "Timestamp",            "path": "$.timestamp",              "datatype": "datetime"},
+    {"column": "KitchenId",            "path": "$.kitchen_id",             "datatype": "string"},
+    {"column": "KitchenName",          "path": "$.kitchen_name",           "datatype": "string"},
+    {"column": "QueueDepth",           "path": "$.queue_depth",            "datatype": "int"},
+    {"column": "Capacity",             "path": "$.capacity",               "datatype": "int"},
+    {"column": "UtilizationPercent",   "path": "$.utilization_percent",    "datatype": "real"},
+    {"column": "AvgPrepTimeMinutes",   "path": "$.avg_prep_time_minutes",  "datatype": "real"},
+    {"column": "Status",               "path": "$.status",                 "datatype": "string"},
+    {"column": "ActiveOrders",         "path": "$.active_orders",          "datatype": "int"},
+    {"column": "EventType",            "path": "$.event_type",             "datatype": "string"}
+]
+```
+
+.create-or-alter table Alerts ingestion json mapping 'AlertsJsonMapping'
+```
+[
+    {"column": "Timestamp",          "path": "$.timestamp",           "datatype": "datetime"},
+    {"column": "AlertId",            "path": "$.alert_id",            "datatype": "string"},
+    {"column": "RuleName",           "path": "$.rule_name",           "datatype": "string"},
+    {"column": "Severity",           "path": "$.severity",            "datatype": "string"},
+    {"column": "EntityType",         "path": "$.entity_type",         "datatype": "string"},
+    {"column": "EntityId",           "path": "$.entity_id",           "datatype": "string"},
+    {"column": "Message",            "path": "$.message",             "datatype": "string"},
+    {"column": "RecommendedAction",  "path": "$.recommended_action",  "datatype": "string"},
+    {"column": "IsResolved",         "path": "$.is_resolved",         "datatype": "bool"},
+    {"column": "ResolvedAt",         "path": "$.resolved_at",         "datatype": "datetime"},
+    {"column": "EventType",          "path": "$.event_type",          "datatype": "string"}
+]
+```
+
+// ============================================================
+// Retention & Caching Policies
+// ============================================================
+
+// Keep raw data for 30 days, hot cache for 7 days
+.alter table Orders policy retention ```{ "SoftDeletePeriod": "30.00:00:00", "Recoverability": "Enabled" }```
+.alter table Orders policy caching hot = 7d
+
+.alter table DriverUpdates policy retention ```{ "SoftDeletePeriod": "30.00:00:00", "Recoverability": "Enabled" }```
+.alter table DriverUpdates policy caching hot = 7d
+
+.alter table KitchenMetrics policy retention ```{ "SoftDeletePeriod": "30.00:00:00", "Recoverability": "Enabled" }```
+.alter table KitchenMetrics policy caching hot = 7d
+
+.alter table Alerts policy retention ```{ "SoftDeletePeriod": "90.00:00:00", "Recoverability": "Enabled" }```
+.alter table Alerts policy caching hot = 30d
+
+// ============================================================
+// Enable Streaming Ingestion (for real-time EventStream data)
+// ============================================================
+
+.alter table Orders policy streamingingestion enable
+.alter table DriverUpdates policy streamingingestion enable
+.alter table KitchenMetrics policy streamingingestion enable
+.alter table Alerts policy streamingingestion enable
