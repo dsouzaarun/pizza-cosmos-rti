@@ -2,102 +2,60 @@
 
 ## Overview
 
-The `PizzaCosmosStream` EventStream ingests real-time pizza events from
-the Python event producer and routes them to the KQL Database.
+The `PizzaCosmosStream` EventStream is deployed in the Fabric workspace
+as part of the Pizza Cosmos RTI architecture. It serves as the event
+ingestion backbone for the system.
 
-## Architecture
+## Data Ingestion Paths
+
+Pizza Cosmos supports **two ingestion paths** — choose based on your scenario:
+
+### Path A: Direct KQL Ingestion (Default — Recommended for Workshop)
+
+The `event_producer.py` script sends events **directly** to the KQL Database
+via the Kusto REST API. This is the simplest setup and requires no
+EventStream source configuration.
 
 ```
-Python event_producer.py
-        │
-        │  HTTP POST (Custom App endpoint)
-        ▼
-┌─────────────────────────┐
-│  PizzaCosmosStream      │
-│  (Fabric EventStream)   │
-│                         │
-│  Source: Custom App      │
-│  ┌───────────────────┐  │
-│  │ JSON events       │  │
-│  │ {event_type, ...} │  │
-│  └───────┬───────────┘  │
-│          │ route by      │
-│          │ event_type    │
-│          ▼               │
-│  Destinations:           │
-│  ├─ Orders table         │
-│  ├─ DriverUpdates table  │
-│  ├─ KitchenMetrics table │
-│  └─ Alerts table         │
-└─────────────────────────┘
-        │
-        ▼
-  KQL Database (PizzaCosmosDB)
+event_producer.py  -->  KQL REST API  -->  KQL Database tables
 ```
 
-## Step 1: Create EventStream
+**To use:** Just run `python event_producer.py` — no extra config needed.
 
-### Via Fabric Portal (Recommended for first setup)
+### Path B: EventStream Custom App Source (Production Pattern)
 
-1. Open workspace: https://msit.powerbi.com/groups/4f220595-524e-4e5e-99c7-1e6f4a5b1b3f
-2. Click **+ New** → **EventStream**
-3. Name: `PizzaCosmosStream`
-4. Click **Create**
+For production scenarios, route events through EventStream with a
+Custom App source. This enables replay, fan-out, and transformation.
 
-### Via CLI (using Fabric REST API)
-
-```powershell
-$WS_ID = "4f220595-524e-4e5e-99c7-1e6f4a5b1b3f"
-
-az rest --method POST `
-  --url "https://api.fabric.microsoft.com/v1/workspaces/$WS_ID/eventstreams" `
-  --resource "https://api.fabric.microsoft.com" `
-  --headers "Content-Type=application/json" `
-  --body '{"displayName": "PizzaCosmosStream", "description": "Real-time pizza delivery event stream"}'
+```
+event_producer.py  -->  EventStream (Custom App)  -->  KQL Database tables
 ```
 
-## Step 2: Add Custom App Source
+**Portal setup required** (API does not support Custom App source configuration):
 
-1. In the EventStream editor, click **New source** → **Custom App**
-2. Name the source: `PizzaEventProducer`
-3. Copy the **connection string** — you'll need it for `event_producer.py`
-4. The connection string looks like:
-   ```
-   Endpoint=sb://<namespace>.servicebus.windows.net/;SharedAccessKeyName=<key-name>;SharedAccessKey=<key>;EntityPath=<eventhub-name>
-   ```
+1. Open the EventStream `PizzaCosmosStream` in the Fabric portal
+2. Click **New source** > **Custom App**
+3. Name: `PizzaEventProducer`
+4. Copy the connection string for the event producer
+5. Add **KQL Database** destinations for each table:
 
-## Step 3: Add KQL Database Destinations
-
-For each table, add a destination:
-
-1. Click **New destination** → **KQL Database**
-2. Select workspace: current workspace
-3. Select database: `PizzaCosmosDB`
-4. Configure routing:
-
-| Destination Name | Target Table | Filter Condition |
-|-----------------|--------------|------------------|
+| Destination | Target Table | Filter |
+|-------------|-------------|--------|
 | `OrdersRoute` | `Orders` | `event_type` in (`order_placed`, `order_updated`, `order_delivered`) |
 | `DriverRoute` | `DriverUpdates` | `event_type` = `driver_update` |
 | `KitchenRoute` | `KitchenMetrics` | `event_type` = `kitchen_metrics` |
 | `AlertRoute` | `Alerts` | `event_type` = `alert` |
 
-5. For each destination, select the matching JSON ingestion mapping
-   (e.g., `OrdersJsonMapping` for the Orders table)
+## Deployment
 
-## Step 4: Configure the Python Producer
-
-Set the connection string as an environment variable:
+The EventStream item is created via script:
 
 ```powershell
-$env:EVENTHUB_CONNECTION_STRING = "<connection-string-from-step-2>"
+.\fabric\scripts\deploy-eventstream.ps1
 ```
 
-Or create a `.env` file in the project root:
-
-```
-EVENTHUB_CONNECTION_STRING=Endpoint=sb://...
-```
+This creates the `PizzaCosmosStream` EventStream in the workspace.
+Source and destination routing must be configured in the portal (see Path B above).
 
 ## Event Schema
 
